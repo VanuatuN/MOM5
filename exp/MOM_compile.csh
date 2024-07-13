@@ -1,19 +1,18 @@
 #!/bin/csh -f
 # Minimal compile script for fully coupled model CM2M experiments
 
-set platform      = gfortran    # A unique identifier for your platform
+set platform      = nci    # A unique identifier for your platform
                                 # This corresponds to the mkmf templates in $root/bin dir.
-set type          = MOM_solo    # Type of the experiment
+set type          = ACCESS-OM    # Type of the experiment
 set unit_testing = 0
 set help = 0
 set debug = 0
 set repro = 0
 set use_netcdf4 = 0
 set environ = 1
-set cosima_version = unset
 
 
-set argv = (`getopt -u -o h -l type: -l platform: -l help -l unit_testing -l debug -l repro -l use_netcdf4 -l no_environ -l no_version --  $*`)
+set argv = (`getopt -u -o h -l type: -l platform: -l help -l unit_testing -l debug -l repro -l use_netcdf4 -l no_environ --  $*`)
 if ($status != 0) then
   # Die if there are incorrect options
   set help = 1
@@ -35,8 +34,6 @@ while ("$argv[1]" != "--")
                 set use_netcdf4 = 1; breaksw
         case --no_environ:
                 set environ = 0; breaksw
-        case --no_version:
-                set cosima_version = 0; breaksw
         case --help:
                 set help = 1;  breaksw
         case -h:
@@ -66,9 +63,7 @@ if ( $help ) then
     echo
     echo "--use_netcdf4  use NetCDF4, the default is NetCDF4. Warning: many of the standard experiments don't work with NetCDF4."
     echo
-    echo "--no_environ do not source platform specific environment. Allows customising/overriding default environment"
-    echo
-    echo "--no_version disable COSIMA specific versioning for ACCESS-OM* builds"
+    echo "--no_environ  do not source platform specific environment. Allows customising/overriding default environment"
     echo
     exit 1
 endif
@@ -90,15 +85,6 @@ set static        = 0              # 1 if you want static memory allocation, 0 f
 if($static) then
   set executable = $root/exec/$platform/${type}_static/fms_$type.x
   set cppDefs = "$cppDefs -DMOM_STATIC_ARRAYS -DNI_=360 -DNJ_=200 -DNK_=50 -DNI_LOCAL_=60 -DNJ_LOCAL_=50"
-endif
-
-if( $cosima_version == "unset" ) then
-    if( $type =~ ACCESS-OM* ) then
-        # default to cosima versioning for ACCESS-OM if not set explicitly as no_version argument
-        set cosima_version = 1
-    else
-        set cosima_version = 0
-    endif
 endif
 
 if ( $type == EBM ) then
@@ -141,33 +127,25 @@ endif
 #
 # compile mppnccombine.c, needed only if $npes > 1
 if ( ! -f $mppnccombine ) then
-    cc -O -o $mppnccombine -I/usr/local/include -L/usr/local/lib $code_dir/postprocessing/mppnccombine/mppnccombine.c -lm -lnetcdf
+    mpicc -O -Wno-implicit-function-declaration -o $mppnccombine -I/leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/netcdf-c-4.7.4-e3iql33rckkknykdazbv4yu6ht5kxya4/include -L/leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/netcdf-c-4.7.4-e3iql33rckkknykdazbv4yu6ht5kxya4/lib $code_dir/postprocessing/mppnccombine/mppnccombine.c -lm -lnetcdf
 endif
 
 set mkmf_lib = "$mkmf -f -m Makefile -a $code_dir -t $mkmfTemplate"
 set lib_include_dirs = "$root/include $code_dir/shared/include $code_dir/shared/mpp/include"
 
-if ( $cosima_version ) then
-    echo "Including COSIMA version in build"
-    # Build version. This prevents builds outside a git repo, so only enabled for COSIMA builds
-    source ./version_compile.csh
-    set cppDefs = "$cppDefs -DCOSIMA_VERSION"
-endif
+# Build version
+source ./version_compile.csh
 
 # Build FMS.
 source ./FMS_compile.csh
 
-set includes = "-I$code_dir/shared/include -I$executable:h:h/lib_FMS -I$executable:h:h/lib_ocean"
-
-if ( $cosima_version ) then
-    set includes = "$includes -I$executable:h:h/lib_version/"
-endif
+set includes = "-I$code_dir/shared/include -I$executable:h:h/lib_FMS -I$executable:h:h/lib_ocean -I$executable:h:h/lib_version/"
 
 # Build the core ocean.
 cd $root/exp
 source ./ocean_compile.csh
-if ( $status ) exit $status
 
+if ( $status ) exit $status
 if( $type != MOM_solo && $type != ACCESS-OM  && $type != ACCESS-CM && $type != ACCESS-OM-BGC  && $type != ACCESS-ESM) then
     cd $root/exp
     source ./ice_compile.csh
@@ -215,6 +193,7 @@ endif
 
 # Build the executable
 set mkmf_exec = "$mkmf -f -m Makefile -a $code_dir -t $mkmfTemplate -p $executable:t"
+
 mkdir -p $executable:h
 cd $executable:h
 if( $type == MOM_solo ) then
@@ -254,15 +233,12 @@ else
     exit 1
 endif
 
-# Always include FMS
-set libs = "$libs $executable:h:h/lib_FMS/lib_FMS.a"
-
-if ( $cosima_version ) then
-    set libs = "$libs $executable:h:h/lib_version/lib_version.a"
-endif
-
+# Always include FMS and version
+set libs = "$libs $executable:h:h/lib_version/lib_version.a $executable:h:h/lib_FMS/lib_FMS.a"
 $mkmf_exec -o "$includes" -c "$cppDefs" -l "$libs"  $srcList
+
 make
+
 if( $status ) then
     echo "Make failed to create the $type executable"
     exit 1
