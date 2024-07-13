@@ -1,6 +1,6 @@
 # Template for the NCI (nf.nci.org.au) machines. Uses intel compiler and OpenMPI.
 # typical use with mkmf
-# mkmf -t template.ifc -c"-Duse_libMPI -Duse_netCDF" path_names /usr/local/include
+# mkmf -t template.ifc -c"-Duse_libMPI -Duse_netCDF" path_names /leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/*/include
 ############
 # commands #
 ############
@@ -20,9 +20,17 @@ CC := mpicc
 VERBOSE :=
 OPT := on
 
-MAKEFLAGS += -j
+#MAKEFLAGS += -j
+#MAKEFLAGS += --jobs=1
 
-INCLUDE   := -I$(NETCDF_ROOT)/include
+# Get number of CPUs
+MAKEFLAGS += --jobs=$(shell nproc)
+NETCDF_ROOT := /leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/netcdf-fortran-4.5.2-g6pudzj3xc5fglqwz2xkxrr27rflwto3/
+INCLUDE     :=
+INCLUDE     += -I/leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/netcdf-fortran-4.5.2-g6pudzj3xc5fglqwz2xkxrr27rflwto3/include
+INCLUDE     += -I/leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/netcdf-c-4.7.4-e3iql33rckkknykdazbv4yu6ht5kxya4/include/
+#NETCDF_INCLUDE1      := $(shell nf-config --includedir)
+#NETCDF_INCLUDE2      := $(shell nc-config --includedir)
 
 ifneq ($(LIBACCESSOM2_ROOT),)
 INCLUDE  += -I$(LIBACCESSOM2_ROOT)/oasis3-mct/Linux/build/lib/psmile.MPI1 \
@@ -77,8 +85,15 @@ CFLAGS += $(CFLAGS_REPORT)
 FFLAGS += $(FFLAGS_REPORT)
 endif
 
-LIBS := -L$(NETCDF_ROOT)/lib -lnetcdf -lnetcdff \
-
+LIBS :=
+#LIBS += -L$(NETCDF_ROOT)/lib -lnetcdff \
+# Start with a blank LIBS
+# NetCDF library flags
+#LIBS += $(shell nf-config --flibs) 
+# netCDF C library flags, in case installed in a separate directory
+#LIBS += $(shell nc-config --libs) 
+LIBS +=  -L/leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/netcdf-c-4.7.4-e3iql33rckkknykdazbv4yu6ht5kxya4/lib -lnetcdf 
+LIBS +=  -L/leonardo_scratch/large/userexternal/ntilinin/ACCESS-NRI/release/linux-rhel8-x86_64/intel-2021.2.0/netcdf-fortran-4.5.2-g6pudzj3xc5fglqwz2xkxrr27rflwto3/lib -lnetcdff -lm
 ifneq ($(OASIS_ROOT),)
 LIBS += -L$(OASIS_ROOT)/Linux/lib -lpsmile.MPI1 -lmct -lmpeu -lscrip
 endif
