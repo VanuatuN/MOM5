@@ -21,8 +21,17 @@ VERBOSE :=
 OPT := on
 
 MAKEFLAGS += -j
+#NETCDF_ROOT := $(shell nf-config --prefix)
+#NETCDF_INCLUDE = $(NETCDF_ROOT)/include
+#NETCDF_LIBRARY = -L$(NETCDF_ROOT)/lib -lnetcdf -lnetcdff
+#INCLUDE   := -I$(NETCDF_ROOT)/include
 
-INCLUDE   := -I$(NETCDF_ROOT)/include
+NETCDF_ROOT := $(shell nc-config --prefix)
+NETCDFF_ROOT := $(shell nf-config --prefix)
+
+INCLUDE :=
+INCLUDE += -I$(NETCDF_ROOT)/include
+INCLUDE += -I$(NETCDFF_ROOT)/include
 
 ifneq ($(LIBACCESSOM2_ROOT),)
 INCLUDE  += -I$(LIBACCESSOM2_ROOT)/oasis3-mct/Linux/build/lib/psmile.MPI1 \
@@ -77,7 +86,12 @@ CFLAGS += $(CFLAGS_REPORT)
 FFLAGS += $(FFLAGS_REPORT)
 endif
 
-LIBS := -L$(NETCDF_ROOT)/lib -lnetcdf -lnetcdff \
+#LIBS := -L$(NETCDF_ROOT)/lib -lnetcdf -lnetcdff \
+
+LIBS :=
+LIBS += -L$(NETCDFF_ROOT)/lib -lnetcdff
+LIBS += -L$(NETCDF_ROOT)/lib -lnetcdf
+LIBS += -lm
 
 ifneq ($(OASIS_ROOT),)
 LIBS += -L$(OASIS_ROOT)/Linux/lib -lpsmile.MPI1 -lmct -lmpeu -lscrip

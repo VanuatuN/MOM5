@@ -1,7 +1,7 @@
 #!/bin/csh -f
 # Minimal compile script for fully coupled model CM2M experiments
 
-set platform      = gfortran    # A unique identifier for your platform
+set platform      = leo    # A unique identifier for your platform
                                 # This corresponds to the mkmf templates in $root/bin dir.
 set type          = MOM_solo    # Type of the experiment
 set unit_testing = 0
@@ -126,8 +126,15 @@ endif
 
 #
 # compile mppnccombine.c, needed only if $npes > 1
+# if ( ! -f $mppnccombine ) then
+#     cc -O -o $mppnccombine -I/usr/local/include -L/usr/local/lib $code_dir/postprocessing/mppnccombine/mppnccombine.c -lm -lnetcdf
+# endif
+
 if ( ! -f $mppnccombine ) then
-    cc -O -o $mppnccombine -I/usr/local/include -L/usr/local/lib $code_dir/postprocessing/mppnccombine/mppnccombine.c -lm -lnetcdf
+    mpicc -O -Wno-implicit-function-declaration -o $mppnccombine \
+        -I`nc-config --includedir` \
+        -L`nc-config --prefix`/lib \
+        $code_dir/postprocessing/mppnccombine/mppnccombine.c -lm -lnetcdf
 endif
 
 set mkmf_lib = "$mkmf -f -m Makefile -a $code_dir -t $mkmfTemplate"
